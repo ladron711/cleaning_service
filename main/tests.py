@@ -382,36 +382,34 @@ class PublicApplicationTests(TestCase):
         self.assertNotContains(response, application.phone)
 
 
-    def test_search_shows_public_fields_for_each_status(self):
-        application = Application.objects.create(
-            section=self.section, equipment=self.equipment,
-            customer_name="Секретное имя", phone="+77009998877",
-            urgency=Application.Urgency.NORMAL,
-        )
-        for status in Application.Status.values:
-            with self.subTest(status=status):
-                application.status = status
-                application.save(update_fields=["status"])
-                response = self.client.get(reverse("home"), {"number": application.pk})
-                self.assertEqual(response.context["found_application"], application)
-                result = response.content.decode().split('id="search-result"', 1)[1].split("</div>", 1)[0]
-                self.assertIn(f"Заявка №{application.pk}", result)
-                self.assertIn(f"Статус: {application.get_status_display()}", result)
-                self.assertIn("Участок: Начало — Конец", result)
-                self.assertIn("Погрузчик: Погрузчик", result)
-                self.assertContains(response, "Участок: Начало — Конец")
-                self.assertContains(response, "Погрузчик: Погрузчик")
-                self.assertNotContains(response, application.customer_name)
-                self.assertNotContains(response, application.phone)
-
-    def test_unknown_and_invalid_search_numbers(self):
-        for number in ("999999", "", "abc", "-1", "1.5", "9" * 100, "9223372036854775808", "0", "١", "１２"):
+    def test_old_search_parameter_is_ignored_and_history_is_preserved(self):
+        applications = [
+            Application.objects.create(
+                section=self.section, equipment=self.equipment,
+                customer_name="Секретное имя", phone="+77009998877",
+                urgency=Application.Urgency.NORMAL, status=status,
+            )
+            for status in Application.Status.values
+        ]
+        baseline = self.client.get(reverse("home"))
+        for number in (str(applications[0].pk), "999999", "", "abc", "-1", "1.5",
+                       "9" * 100, "9223372036854775808", "0", "١", "１２"):
             with self.subTest(number=number):
                 response = self.client.get(reverse("home"), {"number": number})
-                self.assertContains(response, "Заявка не найдена")
-                self.assertIsNone(response.context["found_application"])
-        response = self.client.get(reverse("home"))
-        self.assertNotContains(response, "Заявка не найдена")
+                self.assertEqual(response.status_code, 200)
+                for key in ("search_requested", "search_number", "found_application"):
+                    self.assertNotIn(key, response.context)
+                self.assertEqual(
+                    list(response.context["all_applications"]),
+                    list(baseline.context["all_applications"]),
+                )
+                self.assertNotContains(response, 'id="search-result"')
+                self.assertNotContains(response, "Заявка не найдена")
+                for application in applications:
+                    self.assertContains(response, f"<td>№{application.pk}</td>", html=True)
+                    self.assertContains(response, application.get_status_display())
+                    self.assertNotContains(response, application.customer_name)
+                    self.assertNotContains(response, application.phone)
 
     def test_gallery_is_not_public_for_any_application_status(self):
         completed_at = timezone.now()
@@ -443,14 +441,24 @@ class PublicApplicationTests(TestCase):
         self.assertNotContains(response, "+77001112233")
 
 
-    def test_search_form_is_below_application_form(self):
-        response = self.client.get(reverse("home"))
-        content = response.content.decode()
-        application_end = content.index('</form>', content.index('id="application-form"'))
-        self.assertLess(application_end, content.index('id="application-search"'))
-        self.assertContains(response, '<form id="application-search" method="get" action="/">', html=False)
-        self.assertContains(response, 'name="number"')
-        self.assertNotContains(response, 'id="search-result"')
+    def test_search_is_absent_on_desktop_and_mobile(self):
+        user_agents = (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148 Safari/604.1",
+            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36",
+        )
+        for user_agent in user_agents:
+            with self.subTest(user_agent=user_agent):
+                response = self.client.get(reverse("home"), HTTP_USER_AGENT=user_agent)
+                self.assertTemplateUsed(response, "main/home.html")
+                for marker in (
+                    'id="application-search"', 'id="search-heading"',
+                    'id="search-number"', 'id="search-result"', 'name="number"',
+                    "Поиск заявки по номеру", "Найти заявку", "Заявка не найдена",
+                ):
+                    self.assertNotContains(response, marker)
+                self.assertContains(response, '<form id="application-form" method="post">')
+                self.assertContains(response, 'class="history-table"')
 
     def test_admin_photo_uploads_are_preserved(self):
         from io import BytesIO

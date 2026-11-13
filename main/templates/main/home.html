@@ -87,26 +87,6 @@
     </fieldset>
     <button type="submit">Отправить заявку</button>
   </form>
-  <section aria-labelledby="search-heading">
-    <h2 id="search-heading">Поиск заявки по номеру</h2>
-    <form id="application-search" method="get" action="{% url 'home' %}">
-      <label for="search-number">Номер заявки</label>
-      <input id="search-number" name="number" type="text" inputmode="numeric" value="{{ search_number }}">
-      <button type="submit">Найти заявку</button>
-    </form>
-    {% if search_requested %}
-      <div id="search-result" role="status">
-        {% if found_application %}
-          <p>Заявка №{{ found_application.pk }}</p>
-          <p>Статус: {{ found_application.get_status_display }}</p>
-          <p>Участок: {{ found_application.section.start_point }} — {{ found_application.section.end_point }}</p>
-          <p>Погрузчик: {{ found_application.equipment.name }}</p>
-        {% else %}
-          <p>Заявка не найдена</p>
-        {% endif %}
-      </div>
-    {% endif %}
-  </section>
   </div>
   <div class="equipment-column">
   <section class="equipment-panel" aria-labelledby="equipment-heading">

@@ -32,20 +32,9 @@ def home(request):
         )
     ).order_by("pk")
     sections = list(RoadSection.objects.values("id", "direction_id"))
-    search_requested = "number" in request.GET
-    number = request.GET.get("number", "").strip()
-    found_application = None
-    # Некорректный или слишком большой номер считаем неизвестным.
-    if number.isascii() and number.isdecimal() and len(number) <= 19:
-        if 0 < int(number) <= 9223372036854775807:
-            found_application = Application.objects.select_related(
-                "section", "equipment"
-            ).filter(pk=int(number)).first()
     return render(request, "main/home.html", {
         "all_applications": Application.objects.select_related("section").only(
             "id", "status", "status_changed_at", "section__start_point", "section__end_point"
         ).order_by("-status_changed_at", "-pk"),
         "form": form, "equipment_list": equipment, "sections": sections,
-        "search_requested": search_requested, "search_number": number,
-        "found_application": found_application,
     })
