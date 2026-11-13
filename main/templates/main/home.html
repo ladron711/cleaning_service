@@ -1,0 +1,154 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Заявка на обслуживание дороги</title>
+  <link rel="stylesheet" href="{% static 'main/css/style.css' %}">
+</head>
+<body>
+<header class="top-panel">
+  <div class="top-panel-inner">
+    <div class="contact-phone">
+      <span>Возникли вопросы? Позвоните по номеру:</span>
+      <a href="tel:+77064066711">+77064066711</a>
+    </div>
+    <div class="contact-whatsapp">
+      <span>или напишите нам в WhatsApp</span>
+      <a class="whatsapp-link" href="https://wa.me/77064066711" aria-label="Написать в WhatsApp">
+        <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M16 2a14 14 0 0 0-12 21L2 30l7-2a14 14 0 1 0 7-26Z"/>
+          <path fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M11 9l-2 2c0 6 6 12 12 12l2-2-4-3-2 2c-3-1-5-3-6-6l2-2-2-3Z"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="hero">
+  <img class="hero-image" src="{% static 'main/images/hero_snow_loader.webp' %}"
+       alt="" fetchpriority="high">
+  <div class="hero-content"><h2>Содержание автомобильных дорог</h2></div>
+</div>
+<main>
+  <div class="request-layout">
+  <div class="request-panel">
+  <h1>Оставить заявку</h1>
+  <p class="form-intro">Выберите направление, участок дороги, технику и приоритетность</p>
+  {% for message in messages %}<p class="success" role="status">{{ message }}</p>{% endfor %}
+  <form id="application-form" method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <fieldset class="form-block road-fields">
+      <legend><span class="step-number">1</span><span>Выберите направление и участок</span></legend>
+      <div class="form-block-fields">
+        <div class="form-field">
+          {{ form.direction.label_tag }}
+          {{ form.direction.errors }}
+          {{ form.direction }}
+        </div>
+        <div class="form-field">
+          {{ form.section.label_tag }}
+          {{ form.section.errors }}
+          {{ form.section }}
+        </div>
+      </div>
+    </fieldset>
+    <fieldset class="form-block">
+      <legend><span class="step-number">2</span><span>Выберите технику и срочность</span></legend>
+      <div class="form-block-fields">
+        <div class="form-field">
+          {{ form.equipment.label_tag }}
+          {{ form.equipment.errors }}
+          {{ form.equipment }}
+        </div>
+        <div class="form-field">
+          {{ form.urgency.label_tag }}
+          {{ form.urgency.errors }}
+          {{ form.urgency }}
+        </div>
+      </div>
+    </fieldset>
+    <fieldset class="form-block">
+      <legend><span class="step-number">3</span><span>Напишите Ваше имя и номер телефона</span></legend>
+      <div class="form-block-fields">
+        <div class="form-field">
+          {{ form.customer_name.label_tag }}
+          {{ form.customer_name.errors }}
+          {{ form.customer_name }}
+        </div>
+        <div class="form-field">
+          {{ form.phone.label_tag }}
+          {{ form.phone.errors }}
+          {{ form.phone }}
+        </div>
+      </div>
+    </fieldset>
+    <button type="submit">Отправить заявку</button>
+  </form>
+  <section aria-labelledby="search-heading">
+    <h2 id="search-heading">Поиск заявки по номеру</h2>
+    <form id="application-search" method="get" action="{% url 'home' %}">
+      <label for="search-number">Номер заявки</label>
+      <input id="search-number" name="number" type="text" inputmode="numeric" value="{{ search_number }}">
+      <button type="submit">Найти заявку</button>
+    </form>
+    {% if search_requested %}
+      <div id="search-result" role="status">
+        {% if found_application %}
+          <p>Заявка №{{ found_application.pk }}</p>
+          <p>Статус: {{ found_application.get_status_display }}</p>
+          <p>Участок: {{ found_application.section.start_point }} — {{ found_application.section.end_point }}</p>
+          <p>Погрузчик: {{ found_application.equipment.name }}</p>
+        {% else %}
+          <p>Заявка не найдена</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+  </div>
+  <div class="equipment-column">
+  <section class="equipment-panel" aria-labelledby="equipment-heading">
+    <h2 id="equipment-heading">Погрузчики</h2>
+    <div class="equipment-grid">
+      {% for equipment in equipment_list %}
+        <article class="equipment-card">
+          <img src="{% static 'main/images/Detailed Yellow Wheel Loader Cutout.png' %}" alt="" loading="lazy">
+          <h3>{{ equipment.name }}</h3>
+          <p>Объём ковша: {{ equipment.bucket_volume }} м³</p>
+          <p class="equipment-status status-{{ equipment.status }}">{{ equipment.get_status_display }}</p>
+          {% if equipment.status == 'busy' %}
+            {% for work in equipment.current_work %}
+              <p>Текущая работа: {{ work.section.start_point }} — {{ work.section.end_point }}</p>
+            {% endfor %}
+          {% endif %}
+        </article>
+      {% empty %}<p>Погрузчики пока не добавлены.</p>{% endfor %}
+    </div>
+  </section>
+    <section class="history-panel" aria-labelledby="all-applications-heading">
+      <h2 id="all-applications-heading">Все заявки</h2>
+      <div class="applications-history" tabindex="0" role="region" aria-labelledby="all-applications-heading">
+        <table class="history-table">
+          <thead><tr><th scope="col">№</th><th scope="col">Участок</th><th scope="col">Статус</th></tr></thead>
+          <tbody>
+          {% for application in all_applications %}
+            <tr>
+              <td>№{{ application.pk }}</td>
+              <td>{{ application.section.start_point }} — {{ application.section.end_point }}</td>
+              <td>{{ application.get_status_display }}</td>
+            </tr>
+          {% empty %}<tr><td colspan="3">Заявок пока нет</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  </div>
+</main>
+<footer class="site-footer">Содержание автомобильных дорог · Заявки принимаются онлайн</footer>
+{{ sections|json_script:"section-directions" }}
+<script src="{% static 'main/js/main.js' %}" defer></script>
+</body>
+</html>
